@@ -211,14 +211,3 @@ with open("stations.toml", "rb") as f:
 
     r = Tuner()
     r.tuneIn(stations[0])
-
-
-# likedSort = Sort(key="userRating", weight=1, max=10)
-# playedFilter = Filter(key="viewCount", operator=">", value=0)
-# unplayedFilter = Filter(key="viewCount", operator="<", value=1)
-# played = Source(
-#     loader=LoadSimilar(), filters=[playedFilter], sorts=[likedSort], weight=0.5
-# )
-# unplayed = Source(loader=LoadSimilar(), filters=[unplayedFilter], sorts=[], weight=0.5)
-# s = Station([played, unplayed])
-# r.create(s)
