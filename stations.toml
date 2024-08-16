@@ -1,0 +1,18 @@
+[[sources]]
+name = "similar-favorites"
+loader = "similar"
+filters = [{ key = "viewCount", operator = ">", value = 0 }]
+sorts = [{ key = "userRating", weight = 1, max = 10 }]
+
+[[sources]]
+name = "similar-unplayed"
+loader = "similar"
+filters = [{ key = "viewCount", operator = "<", value = 1 }]
+sorts = [{ key = "userRating", weight = 1, max = 10 }]
+
+[[stations]]
+name = "new-stuff"
+sources = [
+    { source = "similar-favorites", weight = 1 },
+    { source = "similar-unplayed", weight = 2 },
+]

@@ -1,22 +1,6 @@
 from plexapi.server import PlexServer, PlayQueue, PlexClient
 import random
-
-# TODO: load configs from file
-# TODO: load station config from file
-# TODO: exclude already added tracks from queue
-# TODO: more operators in filters
-# TODO: weights for different Kinds
-# TODO: more sources
-
-
-class Source:
-    def load(self, track):
-        pass
-
-
-class SimilarSource(Source):
-    def load(self, track):
-        return track.sonicallySimilar()
+import tomllib
 
 
 class Filter:
@@ -26,7 +10,6 @@ class Filter:
         self.value = value
 
     def filterTrack(self, track):
-        # TODO: better way to do this?
         if self.operator == "<":
             return getattr(track, self.key) < self.value
         if self.operator == ">":
@@ -47,13 +30,12 @@ class Sort:
         return (attr / self.max) * self.weight
 
 
-# TODO: better name
-class Kind:
-    def __init__(self, source, filters, sorts, weight):
-        self.source = source
+class Source:
+    def __init__(self, loader, filters, sorts, name):
+        self.loader = loader
         self.filters = filters
         self.sorts = sorts
-        self.weight = weight
+        self.name = name
 
     def filter(self, tracks):
         tracks = tracks
@@ -71,8 +53,10 @@ class Kind:
         return sorted(tracks, key=self.calcSort, reverse=True)
 
     def getTrack(self, queue):
-        options = self.source.load(queue.tracks[-1])
-        filtered = self.filter(options)
+        currentTrack = queue.tracks[-1] if len(queue.tracks) > 0 else None
+        options = self.loader(currentTrack)
+        filtered = list(filter(lambda t: t not in queue.tracks, options))
+        filtered = self.filter(filtered)
         sorted = self.sort(filtered)
 
         if len(sorted) > 0:
@@ -80,46 +64,68 @@ class Kind:
 
 
 class Station:
-    def __init__(self, kinds):
+    def __init__(self, kinds, weights):
         self.kinds = kinds
+        self.weights = weights
 
-    def selectNextKind(self):
-        # TODO: Weight
-        return random.choice(self.kinds)
+    def selectNextSource(self):
+        return random.choices(self.kinds, weights=self.weights)[0]
 
     # pass queue here to filter out tracks already in queue. feels messy
     def getTrack(self, queue):
-        kind = self.selectNextKind()
-        return kind.getTrack(queue)
+        source = self.selectNextSource()
+        print(source.name)
+        return source.getTrack(queue)
 
 
 class Queue:
     tracks = []
 
     def __init__(self, server, client) -> None:
-        self._queue = PlayQueue.get(server, client.currentQueueId)
-        currentTrack = server.fetchItem(client.currentTrackId)
-        self.tracks.append(currentTrack)
+        self.server = server
+        self._queue = None
+        if client.currentQueueId:
+            currentTrack = server.fetchItem(client.currentTrackId)
+            self._queue = PlayQueue.get(server, client.currentQueueId)
+            self.tracks.append(currentTrack)
+        elif client.currentTrackId:
+            currentTrack = server.fetchItem(client.currentTrackId)
+            self._queue = PlayQueue.create(server, [currentTrack])
+            self.tracks.append(currentTrack)
 
     @property
     def id(self):
-        return self._queue.playQueueID
+        if self._queue is not None:
+            return self._queue.playQueueID
 
     @property
     def length(self):
         return len(self.tracks)
 
     def addTrack(self, track):
+        if self._queue is None:
+            self._queue = PlayQueue.create(self.server, [track])
+        else:
+            self._queue.refresh()
+            self._queue.addItem(track)
         self.tracks.append(track)
-        self._queue.addItem(track)
-        self._queue.refresh()
+
+    def empty(self):
+        if self._queue is not None:
+            self._queue.clear()
 
 
 class Config:
-    queueLength = 10
-    port = ""
-    server = ""
-    token = ""
+    def __init__(self):
+        with open("config.toml", "rb") as f:
+            data = tomllib.load(f)
+            self.queueLength = data["queueLength"] if "queueLength" in data else 10
+            self.clientAddress = (
+                data["clientAddress"] if "clientAddress" in data else "http://127.0.0.1"
+            )
+            self.clientPort = data["clientPort"] if "clientPort" in data else "32500"
+            self.server = data["server"]
+            self.token = data["token"]
 
 
 config = Config()
@@ -128,45 +134,91 @@ config = Config()
 class Client:
     def __init__(self, server) -> None:
         self._server = server
-        self._client = PlexClient(baseurl="http://127.0.0.1:" + config.port)
+        self._client = PlexClient(baseurl="http://127.0.0.1:" + config.clientPort)
 
     @property
     def currentQueueId(self):
-        return self._client.timeline.playQueueID
+        try:
+            return self._client.timeline.playQueueID
+        except:
+            print("Error contacting client")
 
     @property
     def currentTrackId(self):
-        return self._client.timeline.key
+        try:
+            return self._client.timeline.key
+        except:
+            print("Error contacting client")
 
     def refreshQueue(self, queue):
-        self._client.refreshPlayQueue(self.currentQueueId)
+        try:
+            self._client.refreshPlayQueue(self.currentQueueId)
+        except:
+            print("Error contacting client")
 
     def play(self):
-        self._client.play()
+        try:
+            self._client.play()
+        except:
+            print("Error contacting client")
 
 
-class Radio:
-    def create(self, station):
+class Tuner:
+    def tuneIn(self, station):
         config = Config()
         server = PlexServer(config.server, config.token)
         client = Client(server)
         queue = Queue(server, client)
 
+        queue.empty()
         client.play()
 
         while queue.length < config.queueLength:
             nextUp = station.getTrack(queue)
             queue.addTrack(nextUp)
             client.refreshQueue(queue)
+            print(nextUp)
 
 
-likedSort = Sort(key="userRating", weight=1, max=10)
-playedFilter = Filter(key="viewCount", operator=">", value=0)
-unplayedFilter = Filter(key="viewCount", operator="<", value=1)
-played = Kind(
-    source=SimilarSource(), filters=[playedFilter], sorts=[likedSort], weight=0.5
-)
-unplayed = Kind(source=SimilarSource(), filters=[unplayedFilter], sorts=[], weight=0.5)
-s = Station([played, unplayed])
-r = Radio()
-r.create(s)
+def loadSimilar(track):
+    if track is None:
+        raise Exception("Need a track")
+    return track.sonicallySimilar()
+
+
+loaders = {"similar": loadSimilar}
+
+with open("stations.toml", "rb") as f:
+    data = tomllib.load(f)
+    sources = {}
+    stations = []
+
+    for sourceConfig in data["sources"]:
+        filters = [
+            Filter(f["key"], f["operator"], f["value"]) for f in sourceConfig["filters"]
+        ]
+        sorts = [Sort(s["key"], s["weight"], s["max"]) for s in sourceConfig["sorts"]]
+        loader = loaders[sourceConfig["loader"]]
+        sources[sourceConfig["name"]] = Source(
+            loader, filters, sorts, sourceConfig["name"]
+        )
+
+    for stationConfig in data["stations"]:
+        sources = [sources[s["source"]] for s in stationConfig["sources"]]
+        weights = [s["weight"] for s in stationConfig["sources"]]
+        station = Station(sources, weights)
+        stations.append(station)
+
+    r = Tuner()
+    r.tuneIn(stations[0])
+
+
+# likedSort = Sort(key="userRating", weight=1, max=10)
+# playedFilter = Filter(key="viewCount", operator=">", value=0)
+# unplayedFilter = Filter(key="viewCount", operator="<", value=1)
+# played = Source(
+#     loader=LoadSimilar(), filters=[playedFilter], sorts=[likedSort], weight=0.5
+# )
+# unplayed = Source(loader=LoadSimilar(), filters=[unplayedFilter], sorts=[], weight=0.5)
+# s = Station([played, unplayed])
+# r.create(s)

@@ -1,0 +1,24 @@
+# Sample customradio config file
+# Items marked "Optional" default to the values demonstrated in this file
+
+# [Optional]
+# How many tracks should we add at a time?
+queueLength = 10
+
+# [Optional]
+# The address of the Plex client you're listening on.
+# If you're running customradio on the same computer as you're listening to Plex on, you can leave this as-is
+clientAddress = "http://127.0.01"
+
+# [Optional]
+# The remote control port for your Plex client. It's usually 32500,
+# but you can check in the Remote Control section of the settings for your client
+clientPort = "32500"
+
+# [Required]
+# The address to your Plex _server_, including the port.
+server = "http://your-plex-server:32400"
+
+# [Required]
+# Your Plex auth token. Read the docs here for more: https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/
+token = "your plex token"
