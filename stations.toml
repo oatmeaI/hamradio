@@ -1,14 +1,17 @@
 [[sources]]
 name = "similar-favorites"
 loader = "similar"
-filters = [{ key = "viewCount", operator = ">", value = 0 }]
-sorts = [{ key = "userRating", weight = 1, max = 10 }]
+filters = [{ key = "playcount", operator = ">", value = 0 }]
+sorts = [
+    { key = "rating", weight = 1 },
+    { key = "lastplay", weight = -0.5 }, # Favor less recently played tracks
+]
 
 [[sources]]
 name = "similar-unplayed"
 loader = "similar"
-filters = [{ key = "viewCount", operator = "<", value = 1 }]
-sorts = [{ key = "userRating", weight = 1, max = 10 }]
+filters = [{ key = "playcount", operator = "<", value = 1 }]
+sorts = [{ key = "rating", weight = 1 }]
 
 [[stations]]
 name = "new-stuff"

@@ -1,6 +1,28 @@
 from plexapi.server import PlexServer, PlayQueue, PlexClient
 import random
 import tomllib
+import time
+
+
+maxes = {
+    "playcount": lambda t: 100,  # TODO: This should fetch, or be configured
+    "rating": lambda t: 10,
+    "lastplay": lambda t: time.time(),
+}
+
+getters = {
+    "playcount": lambda t: t.viewCount,
+    "rating": lambda t: t.userRating,
+    "lastplay": lambda t: t.lastViewedAt.timestamp(),
+}
+
+
+def stat(stat, track):
+    return getters[stat](track) or 0
+
+
+def statMax(stat, track):
+    return maxes[stat](track)
 
 
 class Filter:
@@ -10,24 +32,25 @@ class Filter:
         self.value = value
 
     def filterTrack(self, track):
+        val = stat(self.key, track)
         if self.operator == "<":
-            return getattr(track, self.key) < self.value
+            return val < self.value
         if self.operator == ">":
-            return getattr(track, self.key) > self.value
+            return val > self.value
 
     def filter(self, tracks):
         return list(filter(lambda track: self.filterTrack(track), tracks))
 
 
 class Sort:
-    def __init__(self, key, weight, max):
+    def __init__(self, key, weight):
         self.key = key
         self.weight = weight
-        self.max = max
 
     def calc(self, track):
-        attr = getattr(track, self.key) or 0
-        return (attr / self.max) * self.weight
+        val = stat(self.key, track)
+        max = statMax(self.key, track)
+        return (val / max) * self.weight
 
 
 class Source:
@@ -55,7 +78,12 @@ class Source:
     def getTrack(self, queue):
         currentTrack = queue.tracks[-1] if len(queue.tracks) > 0 else None
         options = self.loader(currentTrack)
-        filtered = list(filter(lambda t: t not in queue.tracks, options))
+        filtered = list(
+            filter(
+                lambda t: t.parentTitle + t.grandparentTitle not in queue.albums,
+                options,
+            )
+        )
         filtered = self.filter(filtered)
         sorted = self.sort(filtered)
 
@@ -80,6 +108,7 @@ class Station:
 
 class Queue:
     tracks = []
+    albums = []
 
     def __init__(self, server, client) -> None:
         self.server = server
@@ -109,6 +138,7 @@ class Queue:
             self._queue.refresh()
             self._queue.addItem(track)
         self.tracks.append(track)
+        self.albums.append(track.parentTitle + track.grandparentTitle)
 
     def empty(self):
         if self._queue is not None:
@@ -197,7 +227,7 @@ with open("stations.toml", "rb") as f:
         filters = [
             Filter(f["key"], f["operator"], f["value"]) for f in sourceConfig["filters"]
         ]
-        sorts = [Sort(s["key"], s["weight"], s["max"]) for s in sourceConfig["sorts"]]
+        sorts = [Sort(s["key"], s["weight"]) for s in sourceConfig["sorts"]]
         loader = loaders[sourceConfig["loader"]]
         sources[sourceConfig["name"]] = Source(
             loader, filters, sorts, sourceConfig["name"]

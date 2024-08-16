@@ -27,10 +27,11 @@ this project is obviously extremely early in development, and there's a lot of w
 
 - [ ] clean up & refactor code: everything is obviously in one giant file right now, which is not ideal, and I wrote it all in one night - so there's stuff to be cleaned up, commented, etc.
 - [ ] add type hinting
-- [ ] improve filtering and sorting: I'd like to add more operators to the Filter class, improve the Sort interface, and add an abstraction layer on top of the Plex property names (ie. `viewCount` doesn't make much sense for music)
+- [ ] improve filtering and sorting: I'd like to add more operators to the Filter class, improve the Sort interface
+- [x] add an abstraction layer on top of the Plex property names (ie. `viewCount` doesn't make much sense for music)
 - [ ] add validation of config files & error handling
 - [ ] add an argument to specify which station to load: currently you can define as many stations as you want, but we'll only ever use the first one
 - [ ] improve documentation, especially around station definitions
 - [ ] add an option to create a playlist instead of a playqueue
-- [ ] improve filtering so that we don't play tracks from the same album back to back
+- [x] improve filtering so that we don't play tracks from the same album back to back
 - [ ] figure out if we can work around the plex remote control api, since it's a little unreliable, and doesn't work when you're not on LAN
