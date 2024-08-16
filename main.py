@@ -189,7 +189,7 @@ config = Config()
 class Client:
     def __init__(self, server) -> None:
         self._server = server
-        self._client = PlexClient(baseurl="http://127.0.0.1:" + config.clientPort)
+        self._client = PlexClient(baseurl=config.clientAddress + config.clientPort)
 
     @property
     def currentQueueId(self):
