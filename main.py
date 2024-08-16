@@ -4,6 +4,21 @@ import tomllib
 import time
 
 
+def loadSimilar(track):
+    if track is None:
+        raise Exception("Need a track")
+    return track.sonicallySimilar()
+
+
+def loadRandom(_):
+    config = Config()
+    server = PlexServer(config.server, config.token)
+    section = server.library.section(config.musicSection)
+    return section.searchTracks(maxresults=1, sort="random")[0]
+
+
+loaders = {"similar": loadSimilar, "random": loadRandom}
+
 maxes = {
     "playcount": lambda t: 100,  # TODO: This should fetch, or be configured
     "rating": lambda t: 10,
@@ -92,9 +107,10 @@ class Source:
 
 
 class Station:
-    def __init__(self, kinds, weights):
+    def __init__(self, kinds, weights, seed=None):
         self.kinds = kinds
         self.weights = weights
+        self.seed = seed
 
     def selectNextSource(self):
         return random.choices(self.kinds, weights=self.weights)[0]
@@ -112,15 +128,22 @@ class Queue:
 
     def __init__(self, server, client) -> None:
         self.server = server
+        self.client = client
         self._queue = None
         if client.currentQueueId:
             currentTrack = server.fetchItem(client.currentTrackId)
             self._queue = PlayQueue.get(server, client.currentQueueId)
             self.tracks.append(currentTrack)
+            self.empty()
         elif client.currentTrackId:
             currentTrack = server.fetchItem(client.currentTrackId)
             self._queue = PlayQueue.create(server, [currentTrack])
             self.tracks.append(currentTrack)
+            self.empty()
+
+    def _initialize(self, track):
+        self._queue = PlayQueue.create(self.server, [track])
+        self.client.play(self._queue)
 
     @property
     def id(self):
@@ -132,8 +155,9 @@ class Queue:
         return len(self.tracks)
 
     def addTrack(self, track):
+        print(self._queue)
         if self._queue is None:
-            self._queue = PlayQueue.create(self.server, [track])
+            self._initialize((track))
         else:
             self._queue.refresh()
             self._queue.addItem(track)
@@ -156,6 +180,7 @@ class Config:
             self.clientPort = data["clientPort"] if "clientPort" in data else "32500"
             self.server = data["server"]
             self.token = data["token"]
+            self.musicSection = data["musicSection"]
 
 
 config = Config()
@@ -170,27 +195,30 @@ class Client:
     def currentQueueId(self):
         try:
             return self._client.timeline.playQueueID
-        except:
-            print("Error contacting client")
+        except Exception as e:
+            print("currentQueueId: Error contacting client", e)
 
     @property
     def currentTrackId(self):
         try:
             return self._client.timeline.key
-        except:
-            print("Error contacting client")
+        except Exception as e:
+            print("currentTrackId: Error contacting client", e)
 
     def refreshQueue(self, queue):
         try:
             self._client.refreshPlayQueue(self.currentQueueId)
-        except:
-            print("Error contacting client")
+        except Exception as e:
+            print("refreshQueue: Error contacting client", e)
 
-    def play(self):
+    def play(self, queue=None):
         try:
-            self._client.play()
-        except:
-            print("Error contacting client")
+            if queue:
+                self._client.playMedia(queue)
+            else:
+                self._client.play()
+        except Exception as e:
+            print("play: Error contacting client", e)
 
 
 class Tuner:
@@ -198,9 +226,15 @@ class Tuner:
         config = Config()
         server = PlexServer(config.server, config.token)
         client = Client(server)
+        # print(config.clientAddress, config.clientPort)
         queue = Queue(server, client)
 
-        queue.empty()
+        if len(queue.tracks) < 1 and station.seed:
+            print("seeding")
+            seeded = station.seed.getTrack(queue)
+            print(seeded)
+            queue.addTrack(seeded)
+
         client.play()
 
         while queue.length < config.queueLength:
@@ -210,13 +244,14 @@ class Tuner:
             print(nextUp)
 
 
-def loadSimilar(track):
-    if track is None:
-        raise Exception("Need a track")
-    return track.sonicallySimilar()
+def buildSource(sourceConfig):
+    filters = [
+        Filter(f["key"], f["operator"], f["value"]) for f in sourceConfig["filters"]
+    ]
+    sorts = [Sort(s["key"], s["weight"]) for s in sourceConfig["sorts"]]
+    loader = loaders[sourceConfig["loader"]]
+    return Source(loader, filters, sorts, sourceConfig["name"])
 
-
-loaders = {"similar": loadSimilar}
 
 with open("stations.toml", "rb") as f:
     data = tomllib.load(f)
@@ -224,19 +259,21 @@ with open("stations.toml", "rb") as f:
     stations = []
 
     for sourceConfig in data["sources"]:
-        filters = [
-            Filter(f["key"], f["operator"], f["value"]) for f in sourceConfig["filters"]
-        ]
-        sorts = [Sort(s["key"], s["weight"]) for s in sourceConfig["sorts"]]
-        loader = loaders[sourceConfig["loader"]]
-        sources[sourceConfig["name"]] = Source(
-            loader, filters, sorts, sourceConfig["name"]
-        )
+        sources[sourceConfig["name"]] = buildSource(sourceConfig)
+        # filters = [
+        #     Filter(f["key"], f["operator"], f["value"]) for f in sourceConfig["filters"]
+        # ]
+        # sorts = [Sort(s["key"], s["weight"]) for s in sourceConfig["sorts"]]
+        # loader = loaders[sourceConfig["loader"]]
+        # sources[sourceConfig["name"]] = Source(
+        #     loader, filters, sorts, sourceConfig["name"]
+        # )
 
     for stationConfig in data["stations"]:
-        sources = [sources[s["source"]] for s in stationConfig["sources"]]
+        _sources = [sources[s["source"]] for s in stationConfig["sources"]]
         weights = [s["weight"] for s in stationConfig["sources"]]
-        station = Station(sources, weights)
+        seed = sources[stationConfig["seed"]] if "seed" in stationConfig else None
+        station = Station(_sources, weights, seed)
         stations.append(station)
 
     r = Tuner()

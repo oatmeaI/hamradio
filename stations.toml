@@ -13,9 +13,16 @@ loader = "similar"
 filters = [{ key = "playcount", operator = "<", value = 1 }]
 sorts = [{ key = "rating", weight = 1 }]
 
+[[sources]]
+name = "random"
+loader = "random"
+filters = []
+sorts = []
+
 [[stations]]
 name = "new-stuff"
 sources = [
     { source = "similar-favorites", weight = 1 },
     { source = "similar-unplayed", weight = 2 },
 ]
+seed = "random"

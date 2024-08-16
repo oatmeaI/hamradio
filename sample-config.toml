@@ -8,7 +8,7 @@ queueLength = 10
 # [Optional]
 # The address of the Plex client you're listening on.
 # If you're running customradio on the same computer as you're listening to Plex on, you can leave this as-is
-clientAddress = "http://127.0.01"
+clientAddress = "http://127.0.0.1"
 
 # [Optional]
 # The remote control port for your Plex client. It's usually 32500,
@@ -22,3 +22,5 @@ server = "http://your-plex-server:32400"
 # [Required]
 # Your Plex auth token. Read the docs here for more: https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/
 token = "your plex token"
+
+musicSection = "Music"
