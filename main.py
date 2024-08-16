@@ -2,12 +2,14 @@ from plexapi.server import PlexServer, PlayQueue, PlexClient
 import random
 import tomllib
 import time
+import sys
 
 
 def loadSimilar(track):
     if track is None:
         raise Exception("Need a track")
-    return track.sonicallySimilar()
+    # TODO: configure distance on per-station basis
+    return track.sonicallySimilar(maxDistance=0.5)
 
 
 def loadRandom(_):
@@ -126,20 +128,35 @@ class Queue:
     tracks = []
     albums = []
 
-    def __init__(self, server, client) -> None:
+    def __init__(self, server, client, mode="replace") -> None:
         self.server = server
         self.client = client
         self._queue = None
+
+        if mode == "fresh":
+            return
+
         if client.currentQueueId:
             currentTrack = server.fetchItem(client.currentTrackId)
             self._queue = PlayQueue.get(server, client.currentQueueId)
             self.tracks.append(currentTrack)
-            self.empty()
+            self.albums.append(currentTrack.parentTitle + currentTrack.grandparentTitle)
         elif client.currentTrackId:
             currentTrack = server.fetchItem(client.currentTrackId)
             self._queue = PlayQueue.create(server, [currentTrack])
             self.tracks.append(currentTrack)
+            self.albums.append(currentTrack.parentTitle + currentTrack.grandparentTitle)
+
+        if mode == "replace":
             self.empty()
+        elif self._queue:
+            # import rich
+            # rich.inspect(self._queue.items)
+            self.tracks += [t for t in self._queue.items]
+            self.albums += [
+                t.parentTitle + t.grandparentTitle for t in self._queue.items
+            ]
+            print(self.tracks)
 
     def _initialize(self, track):
         self._queue = PlayQueue.create(self.server, [track])
@@ -224,25 +241,26 @@ class Client:
 
 
 class Tuner:
-    def tuneIn(self, station):
+    def tuneIn(self, station, mode="replace"):
         config = Config()
         server = PlexServer(config.server, config.token)
         client = Client(server)
-        # print(config.clientAddress, config.clientPort)
-        queue = Queue(server, client)
+        queue = Queue(server, client, mode)
 
         if len(queue.tracks) < 1 and station.seed:
-            print("seeding")
             seeded = station.seed.getTrack(queue)
-            print(seeded)
             queue.addTrack(seeded)
 
         client.play()
 
-        while queue.length < config.queueLength:
+        added = 0
+        while added <= config.queueLength:
             nextUp = station.getTrack(queue)
+            if nextUp is None:
+                raise Exception("No more tracks!")
             queue.addTrack(nextUp)
             client.refreshQueue(queue)
+            added += 1
             print(nextUp)
 
 
@@ -278,5 +296,6 @@ with open("stations.toml", "rb") as f:
         station = Station(_sources, weights, seed)
         stations.append(station)
 
+    mode = sys.argv[1] if len(sys.argv) > 1 else "replace"
     r = Tuner()
-    r.tuneIn(stations[0])
+    r.tuneIn(stations[0], mode)
