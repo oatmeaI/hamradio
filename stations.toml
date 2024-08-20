@@ -24,6 +24,6 @@ sorts = []
 name = "new-stuff"
 sources = [
     { source = "similar-favorites", weight = 1 },
-    { source = "similar-unplayed", weight = 2 },
+    { source = "similar-unplayed", weight = 4 },
 ]
 seed = "random"

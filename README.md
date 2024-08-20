@@ -19,7 +19,7 @@ I love Plex's Radios and Plexamp's Guest DJs, but i want _more_ control. specifi
 0. Install dependencies however you like - I'm using [Poetry](https://python-poetry.org/), but you don't have to. The only external dependency for customradio is [python-plexapi](https://github.com/pkkid/python-plexapi)
 1. Configure customradio: rename `sample-config.toml` to `config.toml` and fill in the values.
 2. Configure a station: the sample `stations.toml` file in this repo demonstrates station config; you can tweak it or create your own.
-3. Run `main.py` and watch the magic!
+3. Run `poetry run flask --app webserver run --host=0.0.0.0` and watch the magic!
 
 ## roadmap
 

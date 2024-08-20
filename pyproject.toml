@@ -4,11 +4,12 @@ version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
 PlexAPI = "^4.15.15"
-
+flask = "^3.0.3"
 
 [tool.poetry.group.dev.dependencies]
 rich = "^13.7.1"
