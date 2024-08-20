@@ -1,7 +1,6 @@
-# customradio
+# HamRadio for Plex(Amp)
 
-custom radio for plex music
-(I need a better name for this - "hamradio"?)
+custom radios for plex music libraries
 
 ## what?
 
