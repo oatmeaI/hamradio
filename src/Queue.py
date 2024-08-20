@@ -95,9 +95,9 @@ class RadioPlaylist(BaseQueue):
         if self._server is None:
             raise Exception("Server required")
         try:
-            self._queue = self._server.playlist("Hamradio")  # TODO: configurable
+            self._queue = self._server.playlist("HamRadio")  # TODO: configurable
         except:
-            self._queue = Playlist.create(self._server, "Hamradio", items=[track])
+            self._queue = Playlist.create(self._server, "HamRadio", items=[track])
 
     @property
     @guard
