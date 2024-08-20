@@ -8,6 +8,11 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 PlexAPI = "^4.15.15"
+flask = "^3.0.3"
+
+[tool.poetry.scripts]
+start = "run flask --app webserver run --host=0.0.0.0"
+debug = "flask --app webserver run --host=0.0.0.0 --debug"
 
 
 [tool.poetry.group.dev.dependencies]
