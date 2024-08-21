@@ -1,5 +1,6 @@
 from typing import Optional
 from plexapi.server import PlayQueue, Playlist
+from plexapi.audio import Track
 
 from Config import Config
 
@@ -24,9 +25,9 @@ class BaseQueue:
     _queue = None
     _server = None
 
-    def __init__(self, server, key=None):
+    def __init__(self, server, client):
         self._server = server
-        self.key = key
+        self.client = client
 
     def _initialize(self, track):
         pass
@@ -48,6 +49,9 @@ class BaseQueue:
             self._initialize(track)
         else:
             self._addToQueue(track)
+            self.logTrack(track)
+
+    def logTrack(self, track):
         self.tracks.append(track)
         self.albums.append(track.parentTitle + track.grandparentTitle)
 
@@ -60,16 +64,62 @@ class BaseQueue:
 
 
 class Queue(BaseQueue):
+    def __init__(self, server, client):
+        self._server = server
+        self.client = client
+        self.tracks = []
+        self.albums = []
+
+        # TODO: clean up this vs _initialize
+        if self.client.currentQueueId:
+            self._queue = PlayQueue.get(self._server, self.client.currentQueueId)
+            currentTrack = self.client.currentTrack
+            self.logTrack(currentTrack)
+            self.empty()
+
+        if self.client.currentTrack:
+            self.logTrack(self.client.currentTrack)
+
+    def initializeFromExisting(self, track):
+        if self._server is None:
+            return
+
+        self._queue = PlayQueue.get(self._server, self.client.currentQueueId)
+
+        # TODO: Log all tracks already in queue
+        # TODO: add option to clear all tracks in queue except for current
+        self.empty()
+
+        self._addToQueue(track)
+        self.logTrack(track)
+
+        currentTrack = self.client.currentTrack
+        self.logTrack(currentTrack)
+
+    def initializeFromScratch(self, track):
+        if self._server is None:
+            return
+
+        if self.client.currentTrackId:
+            currentTrack = self.client.currentTrack
+
+            self.logTrack(currentTrack)
+            self.logTrack(track)
+
+            self._queue = PlayQueue.create(self._server, [currentTrack, track])
+        else:
+            self._queue = PlayQueue.create(self._server, [track])
+            self.logTrack(track)
+
     def _initialize(self, track):
         if self._server is None:
             return
-        if self.key:
-            self._queue = PlayQueue.get(self._server, self.key)
-            currentTrack = self._queue.selectedItem
-            self.tracks.append(currentTrack)
-            self.albums.append(currentTrack.parentTitle + currentTrack.grandparentTitle)
+        if self.client.currentQueueId:
+            self.initializeFromExisting(track)
         else:
-            self._queue = PlayQueue.create(self._server, [track])
+            self.initializeFromScratch(track)
+
+        print("Queue initialized with:", self.tracks)
 
     @property
     @guard

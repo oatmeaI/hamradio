@@ -5,6 +5,6 @@ from Tuner import Tuner
 
 stations = bootstrap()
 station = stations["new-stuff"]
-tuner = Tuner(clientName="iPhone")
+# tuner = Tuner(clientName="iPhone")
 
-tuner.tuneIn(station)
+# tuner.tuneIn(station)

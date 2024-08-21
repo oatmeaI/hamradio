@@ -4,6 +4,8 @@ from Config import Config
 from Queue import Queue, RadioPlaylist
 from Server import server
 
+# NOTE: class properties prefixed with `_` generally indicate a PlexApi object (vs a HamRadio object)
+
 
 class Mode(Enum):
     fresh = 1  # Ignore currently playing track
@@ -16,43 +18,31 @@ class Output(Enum):
 
 
 class Tuner:
-    def __init__(self, clientName=None, mode=Mode.flow, output=Output.playqueue):
+    def __init__(
+        self, clientAddr=None, clientName=None, mode=Mode.flow, output=Output.playqueue
+    ):
         self.mode = mode
+        self.clientAddr = clientAddr
         self.clientName = clientName
         self.output = output
         self.server = server()
 
-    def createQueue(self, key):
-        if self.output == Output.playlist:
-            return RadioPlaylist(self.server)
-        else:
-            return Queue(self.server, key)
-
-    def initQueue(self, queue):
-        if self.clientName and self.mode == Mode.flow:
-            session = next(
-                (
-                    s
-                    for s in self.server.sessions()
-                    if s and s.player.title == self.clientName
-                ),
-                None,
-            )
-            if session:
-                track = self.server.fetchItem(session.key)
-                queue.addTrack(track)
-
     def tuneIn(self, station):
         config = Config
         server = self.server
-        client = Client(server)
-        queue = self.createQueue(client.currentQueueId)
-
-        self.initQueue(queue)
+        client = Client(server, self.clientAddr, name=self.clientName)
+        queue = (
+            RadioPlaylist(server, client)
+            if self.output == Output.playlist
+            else Queue(server, client)
+        )
 
         if queue.length < 1 and station.seed:
             seeded = station.seed.getTrack(queue)
             queue.addTrack(seeded)
+
+        print("q len", queue.length)
+        print(queue.tracks)
 
         while queue.length <= config.queueLength:
             nextUp = station.getTrack(queue)

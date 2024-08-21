@@ -7,11 +7,12 @@ app = Flask(__name__)
 
 @app.route("/")
 def hamRadio():
+    clientAddr = request.remote_addr
     clientName = request.args.get("client")
     stationName = request.args.get("station")
     stations = bootstrap()
     station = stations[stationName]
-    tuner = Tuner(clientName=clientName)
+    tuner = Tuner(clientAddr=clientAddr, clientName=clientName)
     return tuner.tuneIn(station) or "Done"
 
 
