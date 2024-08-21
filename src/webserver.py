@@ -13,7 +13,7 @@ def hamRadio():
     stations = bootstrap()
     station = stations[stationName]
     tuner = Tuner(clientAddr=clientAddr, clientName=clientName)
-    return tuner.tuneIn(station) or "Done"
+    return tuner.tuneIn(station) or ""
 
 
 @app.route("/stations")

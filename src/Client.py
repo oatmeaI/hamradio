@@ -17,7 +17,7 @@ class Client:
     def __init__(self, server, address, name=None) -> None:
         self._server = server
         try:
-            print("client address", address)
+            print("client address", address, name)
             clients = server.clients()
             self._client = next(
                 (c for c in clients if c.address == address or c.title == name), None
@@ -39,10 +39,12 @@ class Client:
                 None,
             )
             for c in sessions:
-                print("existing client:", c.player.title)
+                print("existing session:", c.player.title)
         except Exception as e:
             print(e)
             self._session = None
+
+        print("client init:", self._client, self._session)
 
     @property
     def connected(self):
@@ -66,16 +68,22 @@ class Client:
 
     @property
     def currentTrack(self):
-        if self._server is None:
-            return
-        if self._client is not None and self._client.timeline is not None:
+        if (
+            self.connected is True
+            and self._client is not None
+            and self._client.timeline is not None
+        ):
             return self._server.fetchItem(self._client.timeline.key)
         if self._session is not None:
             return self._server.fetchItem(self._session.key)
 
     @property
     def currentTrackId(self):
-        if self._client is not None and self._client.timeline is not None:
+        if (
+            self.connected is True
+            and self._client is not None
+            and self._client.timeline is not None
+        ):
             return self._client.timeline.key
         if self._session is not None:
             return self._session.key
@@ -95,7 +103,7 @@ class Client:
 
     def play(self, queue: BaseQueue):
         print(self._client)
-        if self._client is not None:
+        if self._client is not None and self.connected is True:
             if self.currentQueueId == queue.id:
                 print("Refreshing queue")
                 self._client.refreshPlayQueue(queue.id)

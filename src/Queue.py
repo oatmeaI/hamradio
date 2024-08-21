@@ -73,8 +73,6 @@ class Queue(BaseQueue):
         # TODO: clean up this vs _initialize
         if self.client.currentQueueId:
             self._queue = PlayQueue.get(self._server, self.client.currentQueueId)
-            currentTrack = self.client.currentTrack
-            self.logTrack(currentTrack)
             self.empty()
 
         if self.client.currentTrack:
